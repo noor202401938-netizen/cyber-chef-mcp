@@ -28,17 +28,37 @@
     "build": "echo 'Build complete'",
     "test": "node test.js"
   },
+  "homepage": "https://cyber-chef-mcp-ehcdg4a5ebehgvc2.eastasia-01.azurewebsites.net/",
+  "bugs": {
+    "url": "https://github.com/noor202401938-netizen/cyber-chef-mcp/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "mcp",
+    "mcp-server",
     "cyberchef",
+    "cyber-chef-mcp",
     "modelcontextprotocol",
     "cybersecurity",
     "agentic-ai",
+    "claude",
+    "cursor",
+    "windsurf",
     "strix",
-    "pentesting",
+    "cryptography",
     "deobfuscation",
+    "reverse-engineering",
     "dlp",
-    "entropy"
+    "entropy",
+    "argon2",
+    "bcrypt",
+    "jwt",
+    "aes-256",
+    "threat-hunting",
+    "defang",
+    "azure-app-service"
   ],
   "author": "Noor Fatima",
   "license": "Apache-2.0",
