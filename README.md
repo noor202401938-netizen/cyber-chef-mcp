@@ -5,7 +5,7 @@
 
 [![Azure Live Deployment](https://img.shields.io/badge/Azure_Cloud-Live_Dashboard_%26_SSE-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://cyber-chef-mcp-ehcdg4a5ebehgvc2.eastasia-01.azurewebsites.net/)
 [![NPM Version](https://img.shields.io/npm/v/@noorfatima123456/cyber-chef-mcp.svg?style=for-the-badge&color=CB3837&logo=npm)](https://www.npmjs.com/package/@noorfatima123456/cyber-chef-mcp)
-[![Smithery](https://smithery.ai/badge/@noor202401938-netizen/cyber-chef-mcp)](https://smithery.ai/server/@noor202401938-netizen/cyber-chef-mcp)
+[![Smithery](https://smithery.ai/badge/@noor-202401938/cyber-chef-mcp)](https://smithery.ai/servers/noor-202401938/cyber-chef-mcp)
 [![Glama](https://glama.ai/mcp/servers/noor202401938-netizen/cyber-chef-mcp/badge)](https://glama.ai/mcp/servers/noor202401938-netizen/cyber-chef-mcp)
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat-square)](LICENSE)
@@ -113,7 +113,7 @@ claude mcp add cyberchef -- npx -y @noorfatima123456/cyber-chef-mcp@latest
 
 #### Via Smithery (1-Click Install)
 ```bash
-npx -y @smithery/cli install @noor202401938-netizen/cyber-chef-mcp --client claude
+npx -y @smithery/cli install @noor-202401938/cyber-chef-mcp --client claude
 ```
 
 ---
