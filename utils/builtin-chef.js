@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import zlib from "zlib";
 
 /**
  * Builtin high-performance security primitives matching CyberChef operations
@@ -122,7 +123,13 @@ export const BuiltinChef = {
 
   xor(input, key = "key", keyFormat = "UTF8") {
     const inBuf = Buffer.isBuffer(input) ? input : Buffer.from(String(input), "latin1");
-    const keyBuf = keyFormat === "Hex" ? Buffer.from(key.replace(/[^0-9a-fA-F]/g, ""), "hex") : Buffer.from(key, "utf8");
+    let keyBuf;
+    if (String(keyFormat).toLowerCase() === "hex" || (typeof key === "string" && key.toLowerCase().startsWith("0x"))) {
+      const cleanHex = String(key).replace(/^0x/i, "").replace(/[^0-9a-fA-F]/g, "");
+      keyBuf = Buffer.from(cleanHex, "hex");
+    } else {
+      keyBuf = Buffer.from(key, "utf8");
+    }
     if (keyBuf.length === 0) return inBuf.toString("latin1");
 
     const outBuf = Buffer.alloc(inBuf.length);
@@ -222,9 +229,36 @@ export const BuiltinChef = {
         }
       }
 
-      return {
+      const nonParamFields = fields.slice(1).filter(f => !f.includes("="));
+      const salt = nonParamFields.length >= 2 ? nonParamFields[nonParamFields.length - 2] : (nonParamFields[0] || null);
+      const hashDigest = nonParamFields.length >= 2 ? nonParamFields[nonParamFields.length - 1] : null;
+      let hashLengthBytes = 0;
+      if (hashDigest) {
+        try {
+          hashLengthBytes = Buffer.from(hashDigest, "base64").length;
+        } catch {
+          hashLengthBytes = hashDigest.length;
+        }
+      }
+
+      const phcData = {
         algorithm,
+        version: params.v,
         params,
+        salt,
+        hashDigest,
+        hashLengthBytes
+      };
+
+      return {
+        isHash: true,
+        algorithm,
+        version: params.v,
+        params,
+        salt,
+        hashDigest,
+        hashLengthBytes,
+        phcData,
         confidence: "certain",
         probableTypes: [phc[1]],
         warnings
@@ -340,6 +374,10 @@ export const BuiltinChef = {
     };
   },
 
+  analyzeHash(hash) {
+    return this.analyseHash(hash);
+  },
+
   // Calibrated Shannon Entropy with alphabet detection
   entropy(input) {
     const str = String(input);
@@ -403,6 +441,10 @@ export const BuiltinChef = {
       verdict,
       interpretation
     };
+  },
+
+  calculateCalibratedEntropy(input) {
+    return this.entropy(input);
   },
 
   jwtDecode(token) {
@@ -640,41 +682,156 @@ export const BuiltinChef = {
     return String(input).match(regex) || [];
   },
 
+  gunzip(input) {
+    const buf = Buffer.isBuffer(input) ? input : Buffer.from(String(input), "latin1");
+    const decompressed = zlib.gunzipSync(buf);
+    const utf8 = decompressed.toString("utf8");
+    return utf8.includes("\uFFFD") ? decompressed.toString("latin1") : utf8;
+  },
+
+  gzip(input) {
+    const buf = Buffer.isBuffer(input) ? input : Buffer.from(String(input), "utf8");
+    return zlib.gzipSync(buf).toString("latin1");
+  },
+
+  inflate(input) {
+    const buf = Buffer.isBuffer(input) ? input : Buffer.from(String(input), "latin1");
+    try {
+      const decompressed = zlib.inflateSync(buf);
+      const utf8 = decompressed.toString("utf8");
+      return utf8.includes("\uFFFD") ? decompressed.toString("latin1") : utf8;
+    } catch (err) {
+      // Fallback: If payload lacks zlib header (e.g. RFC 1951 raw deflate or RFC 7692), attempt rawInflate
+      return this.rawInflate(buf);
+    }
+  },
+
+  deflate(input) {
+    const buf = Buffer.isBuffer(input) ? input : Buffer.from(String(input), "utf8");
+    return zlib.deflateSync(buf).toString("latin1");
+  },
+
+  rawInflate(input) {
+    const buf = Buffer.isBuffer(input) ? input : Buffer.from(String(input), "latin1");
+    try {
+      const decompressed = zlib.inflateRawSync(buf);
+      const utf8 = decompressed.toString("utf8");
+      return utf8.includes("\uFFFD") ? decompressed.toString("latin1") : utf8;
+    } catch (origErr) {
+      // RFC 7692 WebSocket permessage-deflate strips 00 00 ff ff tail: retry with appended tail
+      try {
+        const withTail = Buffer.concat([buf, Buffer.from([0x00, 0x00, 0xff, 0xff])]);
+        const decompressed = zlib.inflateRawSync(withTail);
+        const utf8 = decompressed.toString("utf8");
+        return utf8.includes("\uFFFD") ? decompressed.toString("latin1") : utf8;
+      } catch {
+        throw origErr;
+      }
+    }
+  },
+
+  rawDeflate(input) {
+    const buf = Buffer.isBuffer(input) ? input : Buffer.from(String(input), "utf8");
+    return zlib.deflateRawSync(buf).toString("latin1");
+  },
+
   magic(input) {
     const str = String(input).trim();
     const suggestions = [];
+    const rawBuf = Buffer.from(str, "latin1");
 
-    // Check Base64
+    // 1. Direct Compression Magic Check (Gzip 1f 8b, Zlib 78 01/9c/da)
+    if (rawBuf.length >= 2 && rawBuf[0] === 0x1f && rawBuf[1] === 0x8b) {
+      try {
+        const decompressed = zlib.gunzipSync(rawBuf).toString("utf8");
+        suggestions.push({
+          recipe: [{ op: "Gunzip", args: [] }],
+          confidence: 0.99,
+          sample: decompressed.slice(0, 100),
+          description: "Gzip compressed data (RFC 1952)"
+        });
+      } catch {}
+    } else if (rawBuf.length >= 2 && rawBuf[0] === 0x78 && [0x01, 0x5e, 0x9c, 0xda].includes(rawBuf[1])) {
+      try {
+        const decompressed = zlib.inflateSync(rawBuf).toString("utf8");
+        suggestions.push({
+          recipe: [{ op: "Zlib Inflate", args: [] }],
+          confidence: 0.98,
+          sample: decompressed.slice(0, 100),
+          description: "Zlib compressed stream (RFC 1950)"
+        });
+      } catch {}
+    }
+
+    // 2. Check Base64 (both plaintext and Base64-encoded compressed streams)
     if (/^[A-Za-z0-9+/=_-]{8,}$/.test(str) && str.length % 4 === 0) {
       try {
-        const decoded = Buffer.from(str.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
-        if (/^[\x20-\x7E\r\n\t]+$/.test(decoded)) {
-          suggestions.push({
-            recipe: [{ op: "From Base64", args: [] }],
-            confidence: 0.95,
-            sample: decoded.slice(0, 100),
-            description: "Standard or URL-safe Base64 encoded plaintext"
-          });
+        const decodedBuf = Buffer.from(str.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+        
+        // Check if decoded buffer is Gzip compressed
+        if (decodedBuf.length >= 2 && decodedBuf[0] === 0x1f && decodedBuf[1] === 0x8b) {
+          try {
+            const decompressed = zlib.gunzipSync(decodedBuf).toString("utf8");
+            suggestions.push({
+              recipe: [{ op: "From Base64", args: [] }, { op: "Gunzip", args: [] }],
+              confidence: 0.99,
+              sample: decompressed.slice(0, 100),
+              description: "Base64-encoded Gzip compressed payload"
+            });
+          } catch {}
+        } else if (decodedBuf.length >= 2 && decodedBuf[0] === 0x78 && [0x01, 0x5e, 0x9c, 0xda].includes(decodedBuf[1])) {
+          try {
+            const decompressed = zlib.inflateSync(decodedBuf).toString("utf8");
+            suggestions.push({
+              recipe: [{ op: "From Base64", args: [] }, { op: "Zlib Inflate", args: [] }],
+              confidence: 0.98,
+              sample: decompressed.slice(0, 100),
+              description: "Base64-encoded Zlib compressed payload"
+            });
+          } catch {}
+        } else {
+          const decoded = decodedBuf.toString("utf8");
+          if (/^[\x20-\x7E\r\n\t]+$/.test(decoded)) {
+            suggestions.push({
+              recipe: [{ op: "From Base64", args: [] }],
+              confidence: 0.95,
+              sample: decoded.slice(0, 100),
+              description: "Standard or URL-safe Base64 encoded plaintext"
+            });
+          }
         }
       } catch {}
     }
 
-    // Check Hex
+    // 3. Check Hex (both plaintext and Hex-encoded compressed streams)
     if (/^([0-9a-fA-F]{2})+$/.test(str) && str.length >= 8) {
       try {
-        const decoded = Buffer.from(str, "hex").toString("utf8");
-        if (/^[\x20-\x7E\r\n\t]+$/.test(decoded)) {
-          suggestions.push({
-            recipe: [{ op: "From Hex", args: ["None"] }],
-            confidence: 0.90,
-            sample: decoded.slice(0, 100),
-            description: "Hexadecimal byte sequence"
-          });
+        const decodedBuf = Buffer.from(str, "hex");
+        if (decodedBuf.length >= 2 && decodedBuf[0] === 0x1f && decodedBuf[1] === 0x8b) {
+          try {
+            const decompressed = zlib.gunzipSync(decodedBuf).toString("utf8");
+            suggestions.push({
+              recipe: [{ op: "From Hex", args: ["None"] }, { op: "Gunzip", args: [] }],
+              confidence: 0.99,
+              sample: decompressed.slice(0, 100),
+              description: "Hex-encoded Gzip compressed stream"
+            });
+          } catch {}
+        } else {
+          const decoded = decodedBuf.toString("utf8");
+          if (/^[\x20-\x7E\r\n\t]+$/.test(decoded)) {
+            suggestions.push({
+              recipe: [{ op: "From Hex", args: ["None"] }],
+              confidence: 0.90,
+              sample: decoded.slice(0, 100),
+              description: "Hexadecimal byte sequence"
+            });
+          }
         }
       } catch {}
     }
 
-    // Check URL encoding
+    // 4. Check URL encoding
     if (str.includes("%") && /%[0-9a-fA-F]{2}/.test(str)) {
       try {
         const decoded = decodeURIComponent(str.replace(/\+/g, " "));
@@ -687,7 +844,7 @@ export const BuiltinChef = {
       } catch {}
     }
 
-    // Check JWT
+    // 5. Check JWT
     if (str.startsWith("eyJ") && str.split(".").length === 3) {
       suggestions.push({
         recipe: [{ op: "JWT Decode", args: [] }],
@@ -697,7 +854,7 @@ export const BuiltinChef = {
       });
     }
 
-    // Hash check
+    // 6. Hash check
     if (/^[0-9a-fA-F]{32,128}$/.test(str)) {
       const hashInfo = BuiltinChef.analyseHash(str);
       suggestions.push({
@@ -706,6 +863,41 @@ export const BuiltinChef = {
         sample: hashInfo.probableTypes.join(", "),
         description: `Cryptographic digest: ${hashInfo.probableTypes.join("/")}`
       });
+    }
+
+    // 7. Single-Byte XOR Brute Force (CyberChef flagship magic feature)
+    const checkBuf = (/^([0-9a-fA-F]{2})+$/.test(str) && str.length >= 16)
+      ? Buffer.from(str, "hex")
+      : rawBuf;
+    const isHexSource = checkBuf !== rawBuf;
+
+    if (checkBuf.length >= 8 && checkBuf.length <= 65536) {
+      for (let k = 1; k < 256; k++) {
+        let printable = 0;
+        const xored = Buffer.alloc(checkBuf.length);
+        for (let i = 0; i < checkBuf.length; i++) {
+          const b = checkBuf[i] ^ k;
+          xored[i] = b;
+          if ((b >= 32 && b <= 126) || b === 10 || b === 13 || b === 9) {
+            printable++;
+          }
+        }
+        if (printable / checkBuf.length >= 0.88) {
+          const preview = xored.toString("utf8");
+          if (/powershell|cmd\.exe|https?:\/\/|flag\{|select\s+|function\s+|authorization|bearer\s+|<!doctype|<html>|\{"/i.test(preview)) {
+            const recipe = isHexSource
+              ? [{ op: "From Hex", args: ["None"] }, { op: "XOR", args: ["0x" + k.toString(16).padStart(2, "0"), "Hex"] }]
+              : [{ op: "XOR", args: ["0x" + k.toString(16).padStart(2, "0"), "Hex"] }];
+            suggestions.push({
+              recipe,
+              confidence: 0.93,
+              sample: preview.slice(0, 100),
+              description: `Single-byte XOR obfuscation (Key: 0x${k.toString(16).padStart(2, "0")})`
+            });
+            break;
+          }
+        }
+      }
     }
 
     return {

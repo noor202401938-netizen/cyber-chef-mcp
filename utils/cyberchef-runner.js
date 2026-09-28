@@ -32,7 +32,12 @@ export const OPERATIONS_CATALOG = [
   { name: "JSON Beautify", category: "Utils", description: "Formats unformatted JSON into indented readable structure" },
   { name: "Regular expression", category: "Utils", description: "Searches or extracts patterns matching regex" },
   { name: "Find / Replace", category: "Utils", description: "Finds target substring or regex and replaces with new value" },
-  { name: "Reverse", category: "Utils", description: "Reverses character order of input" }
+  { name: "Reverse", category: "Utils", description: "Reverses character order of input" },
+  { name: "Gunzip", category: "Compression", description: "Decompresses Gzip-compressed byte streams (RFC 1952)" },
+  { name: "Gzip", category: "Compression", description: "Compresses data using Gzip format (RFC 1952)" },
+  { name: "Zlib Inflate", category: "Compression", description: "Decompresses Zlib format compressed streams (RFC 1950)" },
+  { name: "Zlib Deflate", category: "Compression", description: "Compresses data using Zlib format (RFC 1950)" },
+  { name: "Raw Deflate", category: "Compression", description: "Decompresses raw Deflate-compressed streams (RFC 1951)" }
 ];
 
 export class CyberChefEngine {
@@ -141,11 +146,19 @@ export class CyberChefEngine {
           } catch {}
           break;
         case "regular expression": {
-          const pattern = args[0] || "";
-          const flags = args[1] !== undefined ? args[1] : "g";
+          const rawPattern = String(args[0] || "");
+          const flags = String(args[1] !== undefined ? args[1] : "g").slice(0, 5);
+
+          // ReDoS Guardrail (VULN-03): Check for dangerous nested quantifiers causing catastrophic backtracking
+          const hasNestedQuantifiers = /([+*].*?[+*]|\([^\)]+[\+\*]\)[\+\*]|\([^\)]*\[.*?\][^\)]*[\+\*]\)[\+\*])/.test(rawPattern);
+          if (rawPattern.length > 500 || hasNestedQuantifiers) {
+            current = "[Regex Rejected: Potential catastrophic backtracking pattern or pattern length > 500 chars]";
+            break;
+          }
+
           try {
-            const rx = new RegExp(pattern, flags);
-            const matches = current.match(rx) || [];
+            const rx = new RegExp(rawPattern, flags);
+            const matches = current.slice(0, 100000).match(rx) || [];
             current = matches.join("\n");
           } catch (err) {
             current = `[Regex Error: ${err.message}]`;
@@ -159,6 +172,28 @@ export class CyberChefEngine {
           const target = args[0] || "";
           const repl = args[1] || "";
           current = current.split(target).join(repl);
+          break;
+        case "gunzip":
+          current = BuiltinChef.gunzip(current);
+          break;
+        case "gzip":
+          current = BuiltinChef.gzip(current);
+          break;
+        case "inflate":
+        case "zlib inflate":
+          current = BuiltinChef.inflate(current);
+          break;
+        case "deflate":
+        case "zlib deflate":
+          current = BuiltinChef.deflate(current);
+          break;
+        case "raw inflate":
+        case "raw deflate":
+          if (opName.includes("inflate")) {
+            current = BuiltinChef.rawInflate(current);
+          } else {
+            current = BuiltinChef.rawDeflate(current);
+          }
           break;
         default:
           stepsLog.push({ op: step.op, warning: `Operation '${step.op}' not handled directly; skipped.` });

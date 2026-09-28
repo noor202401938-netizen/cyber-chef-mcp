@@ -237,9 +237,10 @@ const privKeyEntities = dlpResults.entities.filter(e => e.type === "private_key_
 assert.strictEqual(privKeyEntities.length, 1);
 console.log("   ✅ Enterprise DLP scanner passed (Luhn check, SSN, PAN, E.164, strict IPv4 octets)");
 
-// Suite 12: Multi-stage Recipe Execution (28 Operations Parity)
-console.log("12. Testing CyberChefEngine.bake with 28 operations parity...");
-assert.strictEqual(OPERATIONS_CATALOG.length, 28, "Catalog must declare exactly 28 core operations");
+// Suite 12: Multi-stage Recipe Execution (33 Operations Parity with native Compression)
+console.log("12. Testing CyberChefEngine.bake with 33 operations parity (including compression)...");
+assert(OPERATIONS_CATALOG.length >= 28, "Catalog must declare at least 28 core operations");
+assert.strictEqual(OPERATIONS_CATALOG.length, 33, "Catalog must declare 33 operations including compression suite");
 
 // Test Regex operation in bake
 const regexRecipeResult = CyberChefEngine.bake("Alpha 123 Beta 456 Gamma", [
@@ -255,13 +256,42 @@ const multiBake = CyberChefEngine.bake("SECRET_CREDENTIAL", [
   { op: "From Hex" }
 ]);
 assert.strictEqual(multiBake.output, "SECRET_CREDENTIAL");
-console.log("   ✅ 28 Operations parity and multi-stage bake passed");
+
+// Test Gzip and Gunzip pipeline in bake
+const gzipBake = CyberChefEngine.bake("CONFIDENTIAL_AGENT_LOG", [
+  { op: "Gzip" },
+  { op: "To Base64" },
+  { op: "From Base64" },
+  { op: "Gunzip" }
+]);
+assert.strictEqual(gzipBake.output, "CONFIDENTIAL_AGENT_LOG");
+
+// Test Zlib Deflate and Inflate pipeline in bake
+const zlibBake = CyberChefEngine.bake("ZLIB_COMPRESSED_PAYLOAD", [
+  { op: "Zlib Deflate" },
+  { op: "To Base64" },
+  { op: "From Base64" },
+  { op: "Zlib Inflate" }
+]);
+assert.strictEqual(zlibBake.output, "ZLIB_COMPRESSED_PAYLOAD");
+console.log("   ✅ 33 Operations parity, compression pipeline, and multi-stage bake passed");
 
 // Suite 13: Magic Heuristic Detection
-console.log("13. Testing Heuristic Magic detection...");
+console.log("13. Testing Heuristic Magic detection (Base64, Gzip, Single-byte XOR)...");
 const magicB64 = CyberChefEngine.magic("dGhpcyBpcyBhIHRlc3Qgc3RyaW5n");
 assert(magicB64.suggestions.some(s => s.description.includes("Base64")));
-console.log("   ✅ Heuristic Magic passed");
+
+// Test Magic Gzip detection
+const gzipped = BuiltinChef.gzip("Top secret network telemetry packet stream");
+const magicGzip = CyberChefEngine.magic(gzipped);
+assert(magicGzip.suggestions.some(s => s.recipe.some(r => r.op === "Gunzip")), "Magic must detect raw Gzip stream");
+
+// Test Magic Single-Byte XOR detection
+const plainXor = "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Command Get-Process";
+const xoredBuf = Buffer.from(plainXor).map(b => b ^ 0x5a);
+const magicXor = CyberChefEngine.magic(xoredBuf.toString("latin1"));
+assert(magicXor.suggestions.some(s => s.description.includes("Single-byte XOR")), "Magic must detect single-byte XOR obfuscation");
+console.log("   ✅ Heuristic Magic (Base64, Gzip, Single-byte XOR) passed");
 
 // Suite 14: JWT Decode
 console.log("14. Testing JWT decoding...");

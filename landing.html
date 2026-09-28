@@ -1,20 +1,4 @@
-/**
- * High-End Cyber-Dark Landing Page for CyberChef MCP on Azure / Cloud
- * Styled to match the exact aesthetic of the agentic engineering toolkit reference:
- * - Moody ink-wash oriental botanical hero artwork seamlessly blended on the right
- * - Modern Grotesk headline ("The operating layer for agent harnesses")
- * - Warm apricot/peach primary CTA ("Install MCP Server ↗") & dark ghost pill
- * - Guided setup terminal pill ($ npx @noorfatima123456/cyber-chef-mcp --guided) with 1-click copy
- * - Coding tool integration logo pills (Claude Code, Codex, Cursor, OpenCode, Kimi, Strix, GitHub)
- * - 4-column metric bar with vertical dividing borders
- * - Interactive agent configuration tabs & live in-browser deobfuscation sandbox
- * - Real-time client-side polling against /health
- */
-export function renderLandingPage(host, port) {
-  const currentHost = host || `localhost:${port}`;
-  const sseUrl = `https://${currentHost}/sse`;
-
-  return `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -24,23 +8,23 @@ export function renderLandingPage(host, port) {
   <meta name="keywords" content="cyberchef mcp, cyber-chef-mcp, cyberchef ai agent, cryptographic decoding mcp, data deobfuscation mcp, claude cyberchef, cursor cyberchef tool, base64 hex xor rot13 mcp, aes-256 decrypt mcp, argon2 bcrypt hash analyzer, dlp scanner mcp, prompt injection defense mcp, agentic data transformations, model context protocol cyberchef">
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
   <meta name="author" content="Noor Fatima, Strix Security">
-  <link rel="canonical" href="https://${currentHost}/">
+  <link rel="canonical" href="https://localhost:8081/">
   <link rel="llms-txt" href="/llms.txt">
 
   <!-- Open Graph / Social Sharing -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://${currentHost}/">
+  <meta property="og:url" content="https://localhost:8081/">
   <meta property="og:title" content="CyberChef MCP | Cryptographic Deobfuscation & Data Transformation Engine for AI Agents">
   <meta property="og:description" content="Deterministic cryptographic engine and multi-stage deobfuscation layer for AI coding assistants. 33+ operations, pure Node.js, zero dependencies, ReDoS immune.">
-  <meta property="og:image" content="https://${currentHost}/hero-art.jpg">
+  <meta property="og:image" content="https://localhost:8081/hero-art.jpg">
   <meta property="og:site_name" content="CyberChef MCP">
 
   <!-- Twitter Cards -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="https://${currentHost}/">
+  <meta name="twitter:url" content="https://localhost:8081/">
   <meta name="twitter:title" content="CyberChef MCP | Cryptographic Deobfuscation Engine for AI Agents">
   <meta name="twitter:description" content="The definitive CyberChef MCP server for Claude Code, Cursor, Windsurf, and Strix. 33+ deterministic cryptographic & encoding operations.">
-  <meta name="twitter:image" content="https://${currentHost}/hero-art.jpg">
+  <meta name="twitter:image" content="https://localhost:8081/hero-art.jpg">
 
   <!-- Schema.org JSON-LD (SoftwareApplication & FAQPage) -->
   <script type="application/ld+json">
@@ -1298,8 +1282,8 @@ export function renderLandingPage(host, port) {
   </footer>
 
   <script>
-    const currentHost = "${currentHost}";
-    const sseUrl = "${sseUrl}";
+    const currentHost = "localhost:8081";
+    const sseUrl = "https://localhost:8081/sse";
 
     const SNIPPETS = {
       claude: JSON.stringify({
@@ -1325,26 +1309,26 @@ export function renderLandingPage(host, port) {
           }
         }
       }, null, 2),
-      strix: \`# Strix Pentesting Framework Integration
+      strix: `# Strix Pentesting Framework Integration
 import httpx
 
 strix_mcp = {
     "name": "cyberchef",
     "transport": "sse",
-    "url": "\${sseUrl}",
+    "url": "${sseUrl}",
     "capabilities": ["deobfuscation", "calibrated_entropy", "dlp_redaction", "jwt_decode"]
 }
-print("Connecting Strix agent to CyberChef MCP at", strix_mcp["url"])\`,
-      npx: \`# Run locally as a stdio MCP server for desktop clients:
+print("Connecting Strix agent to CyberChef MCP at", strix_mcp["url"])`,
+      npx: `# Run locally as a stdio MCP server for desktop clients:
 npx -y @noorfatima123456/cyber-chef-mcp
 
 # Or start an HTTP/SSE server listening on port 8080:
-npx -y @noorfatima123456/cyber-chef-mcp --port 8080\`,
-      curl: \`# Connect to Server-Sent Events (SSE) stream:
-curl -N "\${sseUrl}"
+npx -y @noorfatima123456/cyber-chef-mcp --port 8080`,
+      curl: `# Connect to Server-Sent Events (SSE) stream:
+curl -N "${sseUrl}"
 
 # Query server health liveness probe:
-curl -i "https://\${currentHost}/health"\`
+curl -i "https://${currentHost}/health"`
     };
 
     function switchClient(client, el) {
@@ -1395,12 +1379,12 @@ curl -i "https://\${currentHost}/health"\`
 
       try {
         if (activeOp === 'base64') {
-          const decoded = atob(input.replace(/\\s+/g, ''));
+          const decoded = atob(input.replace(/\s+/g, ''));
           res = {
             operation: "cyberchef_from_base64",
             utf8: decoded,
             byteLength: decoded.length,
-            isPrintable: /^[\\x20-\\x7E\\r\\n\\t]*$/.test(decoded)
+            isPrintable: /^[\x20-\x7E\r\n\t]*$/.test(decoded)
           };
         } else if (activeOp === 'entropy') {
           const freqs = {};
@@ -1426,18 +1410,18 @@ curl -i "https://\${currentHost}/health"\`
         } else if (activeOp === 'dlp') {
           res = {
             operation: "cyberchef_extract_dlp_entities",
-            redacted: input.replace(/\\b(?:\\d[ -]*?){13,19}\\b/g, "[REDACTED_PAN]")
-                           .replace(/\\b\\d{3}-\\d{2}-\\d{4}\\b/g, "[REDACTED_SSN]"),
+            redacted: input.replace(/\b(?:\d[ -]*?){13,19}\b/g, "[REDACTED_PAN]")
+                           .replace(/\b\d{3}-\d{2}-\d{4}\b/g, "[REDACTED_SSN]"),
             entitiesFound: {
-              cardNumbers: (input.match(/\\b(?:\\d[ -]*?){13,19}\\b/g) || []).length,
-              ssns: (input.match(/\\b\\d{3}-\\d{2}-\\d{4}\\b/g) || []).length,
-              ips: (input.match(/\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b/g) || []).length
+              cardNumbers: (input.match(/\b(?:\d[ -]*?){13,19}\b/g) || []).length,
+              ssns: (input.match(/\b\d{3}-\d{2}-\d{4}\b/g) || []).length,
+              ips: (input.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g) || []).length
             }
           };
         } else if (activeOp === 'defang') {
           const defanged = input
             .replace(/http/gi, 'hxxp')
-            .replace(/(\\w)\\.(\\w)/g, '$1[.]' + '$2')
+            .replace(/(\w)\.(\w)/g, '$1[.]' + '$2')
             .replace(/@/g, '[at]');
           res = {
             operation: "cyberchef_defang_url",
@@ -1495,5 +1479,4 @@ curl -i "https://\${currentHost}/health"\`
     }, 15000);
   </script>
 </body>
-</html>`;
-}
+</html>
